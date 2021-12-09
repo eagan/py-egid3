@@ -198,6 +198,7 @@ class ID3Tag:
                 newframe = ID3Frame()
             newframe.frameid = fid
             newframe.info = frames[fid]
+            newframe.parent = newid3
             newid3.frames.append(newframe)
         return newid3
     
