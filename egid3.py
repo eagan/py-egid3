@@ -18,6 +18,19 @@ def from_synchsafe(barray):
         j = (j << 7) | (barray[i] & 0x7f)
     return j
 
+def select_best_encoding(str, encoding_list):
+    best_encoding = (None, None)
+    for e in encoding_list:
+        estr = None
+        try:
+            estr = str.encode(e[2])
+            if best_encoding[1] is None or len(estr) < len(best_encoding[1]):
+                best_encoding = (e, estr)
+        except UnicodeEncodeError:
+            pass
+    return best_encoding
+
+
 class ID3SyntaxError(SyntaxError):
     pass
 
@@ -105,7 +118,7 @@ class ID3FrameText(ID3Frame):
 
     def __init__(self):
         super().__init__()
-        self.encoding = self.ENCODING_LIST[1]
+        self.encoding = None
 
     def set_bininfo(self, buf):
         self.bininfo = buf
@@ -120,15 +133,24 @@ class ID3FrameText(ID3Frame):
 
     def makebin(self):
         if isinstance(self.info, (list)):
+            if self.parent.version[0] <= 3:
+                separator = ' / '
+            else:
+                separator = '\x00'
             info = ''
             for i in self.info:
                 if len(info) > 0:
-                    info += ', '
+                    info += separator
                 info += i
         else:
             info = self.info
-        self.bininfo = b'%c%b' % (self.encoding[0],
-                                  info.encode(self.encoding[2]))
+        if self.parent.version[0] <= 2:
+            encoding_list = self.ENCODING_LIST[:2] # ISO-8859-1 or UTF-16
+        else:
+            encoding_list = self.ENCODING_LIST
+        einfo = select_best_encoding(info, encoding_list)
+        self.encoding = einfo[0]
+        self.bininfo = b'%c%b' % (self.encoding[0], einfo[1])
 
 class ID3FrameURL(ID3Frame):
     def set_bininfo(self, buf):
